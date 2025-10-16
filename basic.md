@@ -309,63 +309,63 @@ php-nginx-service    LoadBalancer   10.0.0.15      18.203.90.12
 
 # 🧭 Kubernetes Architecture
 
-                       ┌──────────────────────────────┐
-                       │        Control Plane         │
-                       └──────────────────────────────┘
-                                   │
-          ┌────────────────────────┼─────────────────────────┐
-          │                        │                         │
-┌──────────────────┐    ┌────────────────────┐     ┌─────────────────────────┐
-│  kube-apiserver  │ ⇆  │    etcd (DB)       │     │ kube-controller-manager │
-│  (REST API layer)│    │   Cluster state DB │     │ Ensures desired state   │
-│  Entry point for │    │   Key-value        │     │  Maintains desired state│
-│  Gateway to all  │    │  Config store      │     │  (Pods, ReplicaSets...) │
-│  cluster actions │    └────────────────────┘     └─────────────────────────┘
-│  via kubectl, UI │
-└──────────────────┘
-└──────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-                        ┌────────────────────────┐
-                        │     kube-scheduler     │
-                        │ Decides which Node     │
-                        │ runs which Pod         │
-                        │ based on resources,    │
-                        │ affinity, etc.         │
-                        └────────────────────────┘
-                                    │
-                                    ▼
-                            ┌──────────────────────────┐
-                            │  cloud-controller-manager│
-                            │ Integrates with cloud API│
-                            │ (AWS, GCP, Azure...)     │
-                            │ - Creates Load Balancers │
-                            │ - Manages Volumes, Routes│
-                            └──────────────────────────┘
-                                        │
-                                        ▼
-       ┌─────────────────────────────────────────────────────────────────┐
-       │                  Worker Nodes (Data plane)                      │
-       └─────────────────────────────────────────────────────────────────┘
-          │                              │                              │
-   ┌──────────────┐              ┌──────────────┐                ┌──────────────┐
-   │   Node #1    |              │   Node #2    |                │   Node #3    |
-   │──────────────│ ⇆ API Server │──────────────│  ⇆ API Server  │──────────────│
-   |   kubelet    │              │   kubelet    │                │   kubelet    │
-   | (Pod manager)│              │   kubelet    │                │   kubelet    │
-   │ Communicates │              │ Communicates │                │ Communicates │
-   │ with API srv │              │ with API srv │                │ with API srv │
-   │ Runs Pods via│              │ Runs Pods via│                │ Runs Pods via│
-   │ containerd/  │              │ containerd/  │                │ containerd/  │
-   │   /Docker    │              │ /Docker      │                │ /Docker      │
-   └──────────────┘              └──────────────┘                └──────────────┘
-          │                             │                                │
-   ┌──────────────┐             ┌──────────────┐                  ┌──────────────┐
-   │    Pod(s)    │             │    Pod(s)    │                  │    Pod(s)    │
-   │ (Nginx, PHP, │             │ (MySQL, API) │                  │ (Vue, Cache) │
-   └──────────────┘             └──────────────┘                  └──────────────┘
+                                    ┌──────────────────────────────┐
+                                    │        Control Plane         │
+                                    └──────────────────────────────┘
+                                                 │
+                        ┌────────────────────────┼─────────────────────────┐
+                        │                        │                         │
+                ┌──────────────────┐    ┌────────────────────┐     ┌─────────────────────────┐
+                │  kube-apiserver  │ ⇆  │    etcd (DB)       │     │ kube-controller-manager │
+                │  (REST API layer)│    │   Cluster state DB │     │ Ensures desired state   │
+                │  Entry point for │    │   Key-value        │     │  Maintains desired state│
+                │  Gateway to all  │    │  Config store      │     │  (Pods, ReplicaSets...) │
+                │  cluster actions │    └────────────────────┘     └─────────────────────────┘
+                │  via kubectl, UI │
+                └──────────────────┘
+                └──────────────────────────────────────────────────────────────────────────────┘
+                                                    │
+                                                    ▼
+                                        ┌────────────────────────┐
+                                        │     kube-scheduler     │
+                                        │ Decides which Node     │
+                                        │ runs which Pod         │
+                                        │ based on resources,    │
+                                        │ affinity, etc.         │
+                                        └────────────────────────┘
+                                                    │
+                                                    ▼
+                                        ┌──────────────────────────┐
+                                        │  cloud-controller-manager│
+                                        │ Integrates with cloud API│
+                                        │ (AWS, GCP, Azure...)     │
+                                        │ - Creates Load Balancers │
+                                        │ - Manages Volumes, Routes│
+                                        └──────────────────────────┘
+                                                    │
+                                                    ▼
+                ┌─────────────────────────────────────────────────────────────────┐
+                │                  Worker Nodes (Data plane)                      │
+                └─────────────────────────────────────────────────────────────────┘
+                    │                              │                              │
+            ┌──────────────┐              ┌──────────────┐                ┌──────────────┐
+            │   Node #1    |              │   Node #2    |                │   Node #3    |
+            │──────────────│ ⇆ API Server │──────────────│  ⇆ API Server  │──────────────│
+            |   kubelet    │              │   kubelet    │                │   kubelet    │
+            | (Pod manager)│              │   kubelet    │                │   kubelet    │
+            │ Communicates │              │ Communicates │                │ Communicates │
+            │ with API srv │              │ with API srv │                │ with API srv │
+            │ Runs Pods via│              │ Runs Pods via│                │ Runs Pods via│
+            │ containerd/  │              │ containerd/  │                │ containerd/  │
+            │   /Docker    │              │ /Docker      │                │ /Docker      │
+            └──────────────┘              └──────────────┘                └──────────────┘
+                    │                             │                                │
+            ┌──────────────┐             ┌──────────────┐                  ┌──────────────┐
+            │    Pod(s)    │             │    Pod(s)    │                  │    Pod(s)    │
+            │ (Nginx, PHP, │             │ (MySQL, API) │                  │ (Vue, Cache) │
+            └──────────────┘             └──────────────┘                  └──────────────┘
 
-# 🧠 Conceptual Overview
+### Conceptual Overview
 
 | Layer | Component | Role |
 |--------|------------|------|
@@ -379,7 +379,7 @@ php-nginx-service    LoadBalancer   10.0.0.15      18.203.90.12
 |                              | kube-proxy | Handles networking and routing for Pods |
 | **Client** | kubectl / API / UI | Interface for users to interact with the cluster |
 
-# 🧠 Data Flow (Simplified)
+### Data Flow (Simplified)
 1. You run `kubectl apply -f app.yaml`
 2. `kubectl` → sends request to **kube-apiserver**
 3. **kube-apiserver** → saves configuration in **etcd**
@@ -389,3 +389,548 @@ php-nginx-service    LoadBalancer   10.0.0.15      18.203.90.12
 7. **cloud-controller-manager** (if in cloud) provisions load balancer or storage
 8. Cluster reaches desired state 🚀
 
+## Node Server Components
+
+### kubelet
+
+kubelet là dịch vụ chính trên mỗi Node trong Kubernetes.
+Nó đóng vai trò là cầu nối giữa Node và Control Plane, đảm bảo rằng các container đang chạy trên Node luôn khớp với mô tả mong muốn (desired state) mà Control Plane chỉ định.
+
+Nói cách khác, kubelet là “người quản lý cục bộ” của Node, giúp Kubernetes điều phối container một cách tự động.
+
+#### Nhiệm vụ chính của kubelet
+
+Nhận lệnh từ Control Plane thông qua kube-apiserver  -> Lệnh thường ở dạng Pod manifest (YAML mô tả Pod và cấu hình của nó).
+
+Giao tiếp với container runtime (Docker, containerd, CRI-O, …) -> Để tạo, khởi động, dừng hoặc xóa container theo chỉ định.
+
+Theo dõi tình trạng container -> Báo cáo trạng thái container và tài nguyên (CPU, RAM, v.v.) về lại cho Control Plane.
+
+Đảm bảo trạng thái mong muốn (Desired State) -> Nếu container chết, kubelet sẽ yêu cầu runtime khởi động lại để khớp với cấu hình trong manifest.
+
+Quản lý cấu hình và secret cục bộ (qua ConfigMap, Secret, Volume…).
+
+
+| Thuộc tính              | Mô tả                                             |
+| ----------------------- | ------------------------------------------------- |
+| **Chức năng chính**     | Quản lý vòng đời container trên node              |
+| **Giao tiếp với**       | Control Plane (qua API Server), container runtime |
+| **Dạng công việc nhận** | Pod manifest                                      |
+| **Trách nhiệm**         | Giữ cho Pod chạy đúng cấu hình yêu cầu            |
+| **Cài đặt**             | Có mặt trên *mọi node* trong cluster              |
+
+### Container Runtime
+
+Mỗi Node trong Kubernetes là nơi thực thi công việc thực tế — tức là nơi các container của ứng dụng chạy. Để làm được điều đó, node phải có một trình chạy container (container runtime) được cài đặt.
+
+Container runtime là phần mềm chịu trách nhiệm khởi tạo, chạy, dừng và quản lý vòng đời của container.
+Kubernetes không trực tiếp tạo container mà ra lệnh cho container runtime thông qua kubelet.
+
+#### Container Runtime phổ biến
+
+| Runtime        | Mô tả ngắn                  |
+| -------------- | ------------------------------------------------ |
+| **Docker**     | Runtime phổ biến nhất, từng là mặc định trong  Kubernetes.         |
+| **containerd** | Runtime nhẹ, được tách từ Docker để dùng độc lập.                   |
+| **CRI-O**      | Runtime được thiết kế riêng cho Kubernetes, tuân theo CRI (Container Runtime Interface).  |
+| **runc**       | Runtime cấp thấp, trực tiếp tạo container từ image, thường được dùng bên dưới Docker hoặc containerd. |
+
+#### Vai trò của Container Runtime trong Node
+
+- Nhận lệnh từ kubelet (qua Container Runtime Interface - CRI).
+- Tải image container từ registry (Docker Hub, Quay.io, v.v).
+- Tạo container từ image đó.
+- Chạy container trong môi trường được cấu hình sẵn (network, volume, env vars...).
+- Báo cáo trạng thái container lại cho kubelet để cập nhật về Control Plane.
+
+### kube-proxy
+
+**kube-proxy** là dịch vụ mạng (network service) chạy trên mỗi Node trong Kubernetes.
+Nhiệm vụ chính của nó là quản lý kết nối mạng giữa các Pod, Node, và Service — giúp các container trong cluster có thể giao tiếp ổn định, an toàn và có thể mở rộng (scalable).
+
+Hiểu đơn giản: kube-proxy chính là “người điều phối lưu lượng mạng” trong mỗi Node.
+
+#### Nhiệm vụ chính của kube-proxy
+
+1. Xử lý routing và subnetting nội bộ
+
+- Đảm bảo rằng các container có thể liên lạc được với nhau dù nằm trên các Node khác nhau.
+- Quản lý dải IP (Pod CIDR) của từng Node.
+
+2. Cung cấp kết nối cho Kubernetes Services
+
+-  Mỗi Service trong Kubernetes là một abstraction dùng để truy cập vào một nhóm Pod.
+-  kube-proxy đảm nhận việc chuyển hướng (forward) request từ Service IP → đến Pod IP thật.
+
+3. Cân bằng tải đơn giản (primitive load balancing)
+
+- Nếu Service trỏ đến nhiều Pod, kube-proxy sẽ chia đều traffic giữa chúng.
+
+4. Giữ cho môi trường mạng “ổn định nhưng cô lập”
+
+- Tức là các Pod có thể giao tiếp theo cấu hình, nhưng vẫn cách ly theo namespace, policy, hoặc network rule.
+
+#### Các chế độ hoạt động của kube-proxy
+
+| Chế độ        | Mô tả ngắn                                             |
+| ------------- | ------------------------------------------------------ |
+| **userspace** | Cũ, hoạt động ở tầng ứng dụng — chậm, ít dùng          |
+| **iptables**  | Dùng rule iptables trong kernel để route traffic       |
+| **ipvs**      | Sử dụng IP Virtual Server (hiệu năng cao hơn iptables) |
+
+Hầu hết các cluster hiện đại dùng ipvs mode vì hiệu năng cao hơn và linh hoạt hơn.
+
+| Thuộc tính           | Mô tả                                                         |
+| -------------------- | ------------------------------------------------------------- |
+| **Chức năng chính**  | Điều phối traffic, routing và load balancing nội bộ           |
+| **Giao tiếp với**    | kube-apiserver, network layer, Pod IPs                        |
+| **Vị trí chạy**      | Mỗi Node                                                      |
+| **Kỹ thuật sử dụng** | iptables hoặc ipvs                                            |
+| **Mục tiêu**         | Giúp Service hoạt động ổn định và traffic được phân phối đúng |
+
+#### Mô tả chính cách hoạt động của các service trong Node Server components
+                    ┌───────────────────────────────────────────────┐
+                    │               CONTROL PLANE                   │
+                    │                                               │
+                    │  ┌─────────────────────────────────────────┐  │
+                    │  │           kube-apiserver                │  │
+                    │  │    (Cổng giao tiếp trung tâm)           │  │
+                    │  ├─────────────────────────────────────────┤  │
+                    │  │      etcd (Key-Value Store)             │  │
+                    │  ├─────────────────────────────────────────┤  │
+                    │  │  kube-scheduler / controller-manager    │  │
+                    │  └─────────────────────────────────────────┘  │
+                    └───────────────────────────────────────────────┘
+                                            ▲
+                                            │
+                                            │ (API calls, Workloads, Configs)
+                                            ▼
+            ┌─────────────────────────────────────────────────────────────────────┐
+            │                              NODE                                   │
+            │ ┌────────────────────────────────────────────────────────────────┐  │
+            │ │                        kubelet                                 │  │
+            │ │  - Liên lạc với API Server                                     │  │
+            │ │  - Nhận PodSpec & quản lý Pod                                  │  │
+            │ │  - Kiểm tra trạng thái container, report lên Control Plane     │  │
+            │ └────────────────────────────────────────────────────────────────┘  │
+            │                            ▲                                        |
+            │                            │ (Dựa trên PodSpec, kubelet gọi         |
+            │                            │ container runtime)                     |
+            │                            ▼                                        |
+            │ ┌─────────────────────────────────────────────────────────────────┐ │
+            │ │                   Container Runtime                             │ │
+            │ │  - Docker / containerd / rkt / cri-o                            │ │
+            │ │  - Chịu trách nhiệm chạy và quản lý vòng đời của container      │ │
+            │ └─────────────────────────────────────────────────────────────────┘ │
+            │                            ▲                                        |
+            │                            │                                        |
+            │                            │ (Traffic từ client hoặc các pod khác)  |
+            │                            ▼                                        |
+            │ ┌────────────────────────────────────────────────────────────────┐  │
+            │ │                        kube-proxy                              │  │
+            │ │  - Quản lý routing & forwarding traffic giữa các Pod & Service │  │
+            │ │  - Tạo iptables/IPVS rules để định tuyến                       │  │
+            │ │  - Cân bằng tải nội bộ cho Service                             │  │
+            │ └────────────────────────────────────────────────────────────────┘  │
+            └─────────────────────────────────────────────────────────────────────┘
+
+## Kubernetes Objects and Workloads
+
+Kubernetes không quản lý container trực tiếp, mà xây dựng thêm các lớp trừu tượng (abstraction layers) bên trên container để:
+
+- Dễ dàng mở rộng (scaling) ứng dụng.
+- Đảm bảo tự phục hồi (resiliency) khi có lỗi.
+- Quản lý vòng đời (lifecycle) của ứng dụng.
+
+Thay vì “chạy container”, bạn sẽ khai báo object trong YAML (ví dụ Pod, Deployment, Service…), rồi Kubernetes sẽ tự lo toàn bộ việc triển khai, giám sát, và cân bằng tải container đó trong cluster.
+
+### Pods – Đơn vị cơ bản nhất trong Kubernetes
+
+Pod là đơn vị nhỏ nhất mà Kubernetes có thể triển khai hoặc quản lý.
+
+Một Pod có thể chứa một hoặc nhiều container, nhưng các container trong cùng một Pod luôn chạy cùng nhau, chia sẻ tài nguyên, IP, và vòng đời.
+
+Một Pod ≈ Một instance của ứng dụng (có thể chứa 1 hoặc vài container liên quan mật thiết với nhau).
+
+#### Tại sao không deploy container trực tiếp?
+
+Kubernetes không gán container trực tiếp lên node, mà luôn bọc container trong Pod.
+Lý do:
+
+- Cho phép nhiều container chia sẻ tài nguyên (mạng, volume, env, v.v.)
+- Dễ dàng theo dõi, restart, replicate ở mức Pod.
+- Làm nền tảng cho các object cấp cao hơn như Deployment, ReplicaSet, StatefulSet,...
+
+#### Cấu trúc cơ bản của một Pod
+
+Một Pod có thể chứa:
+- Container chính (main container) — thực hiện nhiệm vụ chính của ứng dụng.
+- Container phụ (sidecar container) — hỗ trợ, ví dụ:
+    - Đồng bộ dữ liệu.
+    - Thu log.
+    - Cập nhật file khi repo bên ngoài thay đổi.
+
+Ex:
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-app
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+    - name: sidecar-sync
+      image: alpine/git
+      command: ["sh", "-c", "while true; do git pull; sleep 30; done"]
+```
+
+Pod “web-app” có:
+- nginx: container chính phục vụ website.
+- sidecar-sync: container phụ, cứ 30s lại cập nhật nội dung mới từ repo.
+Cả hai chạy trong cùng một Pod, chia sẻ filesystem và IP, volume và lifecycle
+
+Nếu Pod bị xóa -> cả hai container đều bị xóa theo.
+
+#### Đặc điểm quan trọng của Pod
+
+| Tính năng              | Mô tả                                     |
+| ---------------------- | ----------------------------------------------- |
+| **Cấp thấp nhất**      | Tất cả workload cao hơn (Deployment, Job, StatefulSet…) đều dùng Pod làm đơn vị cơ bản. |
+| **Chia sẻ môi trường** | Container trong cùng Pod dùng chung network namespace và volume.                        |
+| **Không tự scale**     | Pod **không nên tự nhân bản** — thay vào đó hãy dùng `ReplicaSet` hoặc `Deployment`.    |
+| **Cùng node**          | Các container trong Pod **luôn được chạy cùng node** để giảm độ trễ và tăng hiệu năng.  |
+
+### Replication Controllers và ReplicaSets
+
+Trong thực tế, bạn không muốn chỉ có 1 Pod — vì nếu Pod đó chết, ứng dụng của bạn cũng “chết” theo.
+👉 Giải pháp: dùng Replication Controller (RC) hoặc ReplicaSet (RS) để:
+
+- Tự động nhân bản (scale) Pod theo số lượng bạn định nghĩa.
+- Giám sát, khởi động lại Pod khi Pod cũ hoặc Node chết.
+- Duy trì số lượng Pod mong muốn (desired state) luôn khớp với thực tế (current state).
+
+#### 1. Replication Controller (RC)
+
+ReplicationController là đối tượng đầu tiên trong Kubernetes được thiết kế để:
+
+- Đảm bảo một số lượng cố định các Pod luôn chạy.
+- Tự động tạo thêm Pod nếu một Pod bị lỗi, hoặc xóa bớt nếu dư.
+
+Ex: 
+```
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: nginx-rc
+spec:
+  replicas: 3
+  selector:
+    app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+```
+
+-  replicas: muốn có 3 Pod.
+-  selector: chỉ định Pod nào thuộc RC này (label app=nginx).
+-  template: là mẫu Pod dùng để tạo Pod mới khi cần.
+
+#### Tính năng
+
+| Chức năng          | Mô tả                                                    |
+| ------------------ | -------------------------------------------------------- |
+| **Self-healing**   | Nếu Pod bị xóa, RC tự tạo lại.                           |
+| **Scaling**        | Dễ dàng tăng/giảm số lượng Pod bằng cách đổi `replicas`. |
+| **Rolling update** | Có thể cập nhật version dần dần mà không downtime.       |
+
+#### 2. ReplicaSet (RS)
+
+ReplicaSet là phiên bản cải tiến của ReplicationController, hoạt động gần giống nhưng có selector mạnh mẽ hơn — cho phép match nhiều điều kiện label phức tạp hơn.
+
+```
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: nginx-rs
+spec:
+  replicas: 3
+  selector:
+    matchExpressions:
+      - key: tier
+        operator: In
+        values:
+          - frontend
+          - api
+  template:
+    metadata:
+      labels:
+        app: nginx
+        tier: frontend
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.25
+          ports:
+            - containerPort: 80
+```
+
+`matchExpressions` cho phép chọn nhiều loại Pod linh hoạt hơn — ví dụ như tất cả Pod có `tier=frontend` hoặc `tier=api`.
+
+##### Điểm khác biệt chính
+
+| So sánh              | ReplicationController      | ReplicaSet                                            |
+| -------------------- | -------------------------- | ----------------------------------------------------- |
+| **API Version**      | `v1`                       | `apps/v1`                                             |
+| **Selector**         | Đơn giản (`matchLabels`)   | Phức tạp (`matchExpressions`)                         |
+| **Rolling Update**   | Có thể thực hiện trực tiếp | Không hỗ trợ trực tiếp, phải thông qua `Deployment`   |
+| **Khuyến nghị dùng** | Cũ, đang bị thay thế       | Dùng trong thực tế, đặc biệt khi kết hợp `Deployment` |
+
+### Deployments
+
+Deployment là một Kubernetes object cao cấp hơn ReplicaSet và ReplicationController.
+Nó quản lý vòng đời (life cycle) của các nhóm Pod — cụ thể là giúp:
+
+- Tự động triển khai (deploy) Pods thông qua ReplicaSets
+- Cập nhật ứng dụng (rolling update) mượt mà, không downtime
+- Rollback nhanh nếu bản cập nhật bị lỗi
+- Lưu lịch sử các bản release để phục hồi khi cần
+
+Tức là: thay vì tự tay quản lý việc khởi tạo pod, scaling, update từng cái, thì Deployment lo hết cho ta.
+
+Ex:
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodejs-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nodejs
+  template:
+    metadata:
+      labels:
+        app: nodejs
+    spec:
+      containers:
+        - name: nodejs-container
+          image: node:18-alpine
+          ports:
+            - containerPort: 3000
+```
+
+Kubernetes sẽ:
+
+- Tạo một ReplicaSet từ Deployment.
+- ReplicaSet này lại tạo ra 3 Pod (vì replicas: 3).
+- Nếu update image (ví dụ đổi sang node:20-alpine)-> Deployment sẽ tạo ReplicaSet mới, từ từ thay thế các Pod cũ → rolling update.
+
+- Nếu update bị lỗi, có thể chạy:
+> kubectl rollout undo deployment/nodejs-app
+
+### Stateful Sets
+
+StatefulSet là một controller trong Kubernetes dùng để quản lý các Pod có trạng thái (state).
+Điểm khác biệt lớn so với Deployment hay ReplicaSet là:
+
+| Tính năng            | Deployment / ReplicaSet               | StatefulSet                   |
+| -------------------- | ------------------------------------- | ----------------------------- |
+| **Pod name**         | Ngẫu nhiên (ví dụ `webapp-8d9f9d4f9-x7t4z`) | Ổn định & theo thứ tự (`mysql-0`, `mysql-1`, `mysql-2`)        |
+| **Volume (storage)** | Không gắn cố định, bị mất khi Pod bị xóa    | Mỗi Pod có volume riêng, được gắn cố định & giữ nguyên dữ liệu |
+| **Startup order**    | Không quan tâm thứ tự                       | Khởi tạo theo thứ tự (`0 → 1 → 2`)                             |
+| **Shutdown order**   | Không quan tâm thứ tự                       | Dừng theo thứ tự ngược (`2 → 1 → 0`)                           |
+| **Use case điển hình** | Web server, API, frontend, worker queue, cronjob,…  | Database, message queue, caching layer có persistence,… |
+
+Ex: 
+
+```
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  serviceName: mysql
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+```
+
+Kết quả:
+
+Kubernetes sẽ tạo ra 3 Pod:
+- mysql-0, mysql-1, mysql-2
+
+Mỗi Pod gắn với PersistentVolumeClaim riêng:
+- mysql-data-mysql-0, mysql-data-mysql-1, mysql-data-mysql-2
+
+Nếu mysql-1 bị xoá và được reschedule sang node khác → nó vẫn dùng lại volume cũ, không mất dữ liệu.
+
+### Daemon Sets
+
+DaemonSet là một loại controller đặc biệt trong Kubernetes,
+nó đảm bảo rằng mỗi node trong cluster (hoặc một nhóm node cụ thể) sẽ luôn có một bản copy của Pod đó chạy.
+
+Nói dễ hiểu: Khi thêm một node mới vào cluster → DaemonSet sẽ tự động deploy Pod của nó lên node mới đó.
+Ngược lại, nếu node bị xóa → Pod tương ứng cũng tự động bị xóa theo.
+
+#### Chức năng và mục đích chính
+
+DaemonSet không chạy ứng dụng người dùng, mà chủ yếu dùng cho các tác vụ hệ thống, ví dụ:
+
+| Mục đích                     | Ví dụ thực tế                               |
+| ---------------------------- | ------------------------------------------- |
+| Thu thập log trên mỗi node | **Fluentd**, **Filebeat**, **Logstash**                       |
+| Thu thập metrics để monitor | **Node Exporter**, **Datadog Agent**, **Prometheus Node Exporter**     |
+| Quản lý network, storage,... | **CNI plugins**, **CSI drivers**               |
+| Bảo mật hoặc quản trị node | **Falco**, **Security Agents**, **Kube-proxy** (thực tế bản thân nó là một DaemonSet) |
+
+#### Cơ chế hoạt động
+
+- Khi tạo một DaemonSet, Kubernetes tự động đảm bảo có 1 Pod trên mỗi node.
+- Nếu node mới được thêm → Pod sẽ tự động spawn.
+- Nếu node bị xoá → Pod bị xoá theo.
+- Nếu DaemonSet được update → Pod trên tất cả các node sẽ được rolling update.
+
+Ex: 
+```
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-logger
+spec:
+  selector:
+    matchLabels:
+      name: node-logger
+  template:
+    metadata:
+      labels:
+        name: node-logger
+    spec:
+      containers:
+      - name: fluentd
+        image: fluent/fluentd:latest
+```
+=> File này nói với Kubernetes:
+“Hãy chạy 1 Pod fluentd trên mỗi node để thu thập log.”
+
+#### So sánh nhanh với các controller khác
+
+| Controller    | Mục tiêu                            | Số lượng Pod trên node     |
+| ------------- | ----------------------------------- | -------------------------- |
+| Deployment    | Ứng dụng stateless (web, API, v.v.) | Tuỳ ý (theo replica count) |
+| StatefulSet   | Ứng dụng stateful (DB, Kafka)       | Tuỳ ý (theo replica count) |
+| **DaemonSet** | Dịch vụ hệ thống (log, metrics)     | **1 Pod trên mỗi node**    |
+
+### Jobs and Cron Jobs
+
+#### 1. Job là gì?
+
+Job là một loại workload trong Kubernetes được thiết kế cho các tác vụ có thời gian sống ngắn (short-lived) —
+tức là chạy xong rồi thoát, không phải service chạy mãi như Deployment hay StatefulSet.
+
+Nó đảm bảo rằng:
+
+> Một hoặc nhiều Pod sẽ chạy cho đến khi tác vụ hoàn tất thành công (exit code = 0).
+
+Nếu Pod bị lỗi hoặc node bị hỏng, Job sẽ tự tạo lại Pod khác để đảm bảo công việc hoàn thành.
+
+#### Use case phổ biến của Job
+
+| Tình huống                     | Ví dụ thực tế                                   |
+| ------------------------------ | ----------------------------------------------- |
+| Xử lý batch hoặc data pipeline | Chạy script xử lý dữ liệu hoặc ETL job          |
+| Migration hoặc seed database   | `php artisan migrate` hoặc `go run migrate.go`  |
+| Gửi email / backup một lần     | Chạy 1 script `send-report.js` hoặc `backup.sh` |
+
+Ex:
+```
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: data-migration
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrate
+        image: myapp:latest
+        command: ["php", "artisan", "migrate"]
+      restartPolicy: Never
+  backoffLimit: 3
+```
+
+- Kubernetes sẽ tạo một Pod chạy lệnh `php artisan migrate`.
+- Nếu lỗi → thử lại tối đa 3 lần (`backoffLimit: 3`).
+- Khi Pod hoàn thành (exit 0) → Job kết thúc.
+
+#### 2. CronJob là gì?
+
+CronJob là phiên bản “có lịch” của Job —
+nó cho phép chạy Job theo lịch định sẵn (giống cron trên Linux).
+
+Ví dụ:
+
+-  Chạy mỗi ngày 1 lần để backup database.
+-  Gửi email báo cáo mỗi giờ.
+-  Ch dọn dẹp log hoặc cache định kỳ.
+
+```
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup-db
+spec:
+  schedule: "0 1 * * *" # Mỗi ngày lúc 01:00 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: myapp:latest
+            command: ["sh", "-c", "pg_dump mydb > /backup/db.sql"]
+          restartPolicy: OnFailure
+```
+1 giờ sáng mỗi ngày, Kubernetes sẽ tạo một Job mới, Job đó sinh ra một Pod để thực hiện việc backup.
+
+| Tính năng              | **Job**              | **CronJob**             |
+| ---------------------- | -------------------- | ----------------------- |
+| Chạy một lần           | ✅                    | ❌ (chạy theo lịch)      |
+| Chạy định kỳ           | ❌                    | ✅                       |
+| Quản lý retries        | ✅                    | ✅                       |
+| Dùng cho task ngắn hạn | ✅                    | ✅                       |
+| Ví dụ                  | Migration, batch job | Backup, report, cleanup |
