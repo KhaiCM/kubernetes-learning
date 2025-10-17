@@ -934,3 +934,677 @@ spec:
 | Quản lý retries        | ✅                    | ✅                       |
 | Dùng cho task ngắn hạn | ✅                    | ✅                       |
 | Ví dụ                  | Migration, batch job | Backup, report, cleanup |
+
+## Other Kubernetes Components
+
+### Kubernetes Services
+
+Trong Kubernetes, “Service” là một lớp trừu tượng (abstraction) giúp ổn định việc truy cập đến các Pod —
+vì Pod trong Kubernetes là ephemeral (tạm thời, có thể chết và tạo lại) nên IP của Pod luôn thay đổi.
+
+👉 Service giải quyết vấn đề này bằng cách cung cấp một điểm truy cập cố định (ClusterIP) để:
+
+- Nhóm nhiều Pod có cùng chức năng lại thành 1 “service logic”
+- Load balance giữa các Pod đó
+- Tự động cập nhật danh sách Pod backend khi có thay đổi (Pod chết, Pod mới được tạo)
+
+#### Service hoạt động
+
+Khi tạo một Service, chỉ định:
+
+- Selector: nhãn (label) để chọn nhóm Pod nào sẽ thuộc về Service
+- Port: cổng để lắng nghe và chuyển tiếp request đến Pod
+- Type: cách mà Service được expose (ClusterIP, NodePort, LoadBalancer,...)
+
+### Các loại Service chính
+
+| Loại Service     | Mục đích                | Phạm vi truy cập                     | Mô tả                                                              |
+| ---------------- | ----------------------- | ------------------------------------ | ------------------------------------------------------------------ |
+| **ClusterIP**    | Mặc định                | **Chỉ trong cluster**                | Dùng để giao tiếp giữa các Pod / Service nội bộ. Có IP ảo cố định. |
+| **NodePort**     | Expose ra ngoài         | **Từ ngoài cluster (qua port node)** | Mở port tĩnh trên mỗi node để truy cập từ bên ngoài vào Service.   |
+| **LoadBalancer** | Expose ra ngoài (cloud) | **Từ internet**                      | Tạo Load Balancer thật (AWS ELB, GCP LB, v.v.) trỏ vào Service.    |
+| **ExternalName** | Alias DNS               | **Không chạy Pod nào**               | Map service name sang một domain khác (VD: external DB).           |
+
+
+Ex:
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-nodeport
+spec:
+  type: NodePort
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 8080
+      nodePort: 30080
+```
+
+- Mở port 30080 trên mọi node trong cluster
+- Khi truy cập http://<node-ip>:30080, request sẽ vào Service và đến Pod backend.
+
+**Luồng hoạt động tổng quát**
+
+- Người dùng gửi request đến Service (qua ClusterIP, NodePort, LB)
+- Service tìm các Pod backend khớp selector
+- kube-proxy định tuyến request đến 1 trong các Pod (round robin)
+- Pod xử lý và trả về kết quả
+
+**Tóm tắt**
+
+| Khái niệm    | Ý nghĩa                                               |
+| ------------ | ----------------------------------------------------- |
+| **Pod**      | Chạy ứng dụng thực tế (ngắn hạn, có thể chết)         |
+| **Service**  | Cung cấp **địa chỉ cố định + load balancing** cho Pod |
+| **Selector** | Cách Service biết nhóm Pod nào để route               |
+| **Type**     | Định nghĩa phạm vi truy cập (nội bộ / public)         |
+
+### Volumes and Persistent Volumes
+
+#### Vấn đề: Dữ liệu trong container là tạm thời
+
+Khi một Pod hoặc Container bị xoá hay khởi động lại, toàn bộ dữ liệu bên trong container cũng biến mất.
+
+Điều này ổn với các ứng dụng stateless (như API hoặc web server) — nhưng hoàn toàn không ổn với các ứng dụng cần giữ dữ liệu như:
+
+  - Database (MySQL, MongoDB, PostgreSQL…)
+  - File uploads
+  - Cache bền vững, log, v.v.
+
+-> Vì vậy Kubernetes cung cấp cơ chế Volume để tách việc lưu trữ ra khỏi vòng đời của container.
+
+####  Kubernetes Volume
+
+- Một Volume trong Kubernetes là một thư mục được gắn vào một hoặc nhiều container trong Pod.
+- Dữ liệu trong volume tồn tại miễn là Pod còn tồn tại, ngay cả khi container bên trong Pod bị restart
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example-pod
+spec:
+  containers:
+    - name: app
+      image: busybox
+      volumeMounts:
+        - name: app-storage
+          mountPath: /data
+  volumes:
+    - name: app-storage
+      emptyDir: {}
+```
+
+- emptyDir là loại volume cơ bản nhất — nó được tạo ra trống khi Pod bắt đầu.
+- Dữ liệu trong emptyDir sẽ mất khi Pod bị xoá, nhưng không mất khi container trong Pod bị restart.
+
+#### Persistent Volumes (PV)
+
+Dùng để tách vòng đời dữ liệu ra khỏi Pod — tức là dữ liệu vẫn tồn tại dù Pod bị xoá hay thay - thế.
+
+Một PersistentVolume (PV) là một tài nguyên lưu trữ trong cluster, được quản lý bởi admin hoặc dynamic provisioner.
+
+PV có thể được backed bởi:
+- Local disk (ổ đĩa trên node)
+- Network storage (NFS, iSCSI)
+- Cloud storage (AWS EBS, GCE Persistent Disk, Azure Disk, v.v.)
+
+```
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-example
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+```
+
+### Persistent Volume Claim (PVC)
+
+Người dùng không gắn trực tiếp PV vào Pod.
+
+Thay vào đó, Pod sẽ yêu cầu một PV thông qua PersistentVolumeClaim (PVC) — giống như một “phiếu đăng ký” tài nguyên lưu trữ.
+
+```
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-example
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+Khi PVC được tạo:
+- Kubernetes sẽ tự động tìm một PV phù hợp (đủ dung lượng và access mode) và gán PVC đó với PV.
+
+Sau đó Pod chỉ cần mount PVC, không cần biết PV cụ thể là gì:
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-using-pvc
+spec:
+  containers:
+    - name: app
+      image: nginx
+      volumeMounts:
+        - mountPath: "/usr/share/nginx/html"
+          name: storage
+  volumes:
+    - name: storage
+      persistentVolumeClaim:
+        claimName: pvc-example
+```
+#### Access Modes
+
+| Access Mode        | Viết tắt | Ý nghĩa                                            |
+| ------------------ | -------- | -------------------------------------------------- |
+| `ReadWriteOnce`    | RWO      | Mount volume chỉ cho **một node** có quyền đọc/ghi |
+| `ReadOnlyMany`     | ROX      | Mount volume cho **nhiều node**, **chỉ đọc**       |
+| `ReadWriteMany`    | RWX      | Mount volume cho **nhiều node**, **có thể ghi**    |
+| `ReadWriteOncePod` | RWOP     | Chỉ **một Pod duy nhất** có thể đọc/ghi volume này |
+
+#### Dynamic Provisioning
+
+- Thay vì admin phải tạo sẵn PV thủ công, Kubernetes có thể tự động tạo PV khi có PVC.
+- Điều này hoạt động thông qua StorageClass.
+
+```
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast-storage
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+```
+
+#### Tóm tắt
+
+| Thành phần                      | Mục đích                               | Vòng đời            |
+| ------------------------------- | -------------------------------------- | ------------------- |
+| **Volume**                      | Lưu trữ tạm, gắn với Pod               | Mất khi Pod xoá     |
+| **PersistentVolume (PV)**       | Lưu trữ bền vững, quản lý bởi cluster  | Tồn tại độc lập     |
+| **PersistentVolumeClaim (PVC)** | “Yêu cầu” dùng PV                      | Gắn với Pod         |
+| **StorageClass**                | Cấu hình provisioner để tạo PV tự động | Quản lý bởi cluster |
+
+### Labels and Annotations
+
+Khi bạn triển khai nhiều Pods, Services, Deployments, ConfigMaps, v.v. trong cùng cluster, việc phân loại và truy vấn tài nguyên trở nên rất khó nếu không có cách gắn “thông tin nhận dạng” cho chúng.
+
+-> Kubernetes giải quyết bằng cách cung cấp hai cơ chế metadata nhẹ:
+
+- Labels → dùng để nhóm, lọc, chọn (select) tài nguyên
+- Annotations → dùng để ghi chú, mô tả thêm thông tin, không phục vụ truy vấn
+
+1. Labels – nhãn phân loại
+
+**Label** là một cặp key: value được gắn vào các object (như Pod, Service, Deployment...).
+
+- Dùng để nhóm tài nguyên theo logic (VD: nhóm các Pod thuộc cùng ứng dụng)
+- Dùng để chọn tài nguyên qua label selectors
+- Dễ dàng triển khai, scale, cập nhật, giám sát theo nhóm
+
+#### 2. Label Selector – cách Kubernetes chọn resource
+
+Label selector là cơ chế giúp một resource (ví dụ như Service, Deployment, ReplicaSet) chỉ định các object mà nó quản lý thông qua label.
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+```
+
+-> Service này sẽ tự động định tuyến đến tất cả Pod có:
+```
+labels:
+  app: frontend
+```
+
+#### Kiểu chọn nâng cao
+
+Kubernetes hỗ trợ 2 kiểu selector:
+| Kiểu               | Mô tả                    | Ví dụ                                             |
+| ------------------ | ------------------------ | ------------------------------------------------- |
+| **Equality-based** | So sánh bằng, khác       | `env=prod`, `tier!=frontend`                      |
+| **Set-based**      | So sánh theo tập giá trị | `env in (prod,staging)` hoặc `tier notin (cache)` |
+
+```
+selector:
+  matchLabels:
+    app: myapp
+  matchExpressions:
+    - key: tier
+      operator: In
+      values:
+        - frontend
+        - backend
+```
+
+#### Annotations – ghi chú metadata mở rộng
+
+Annotations cũng là cặp key: value, nhưng không dùng để lọc hay chọn, mà để lưu thông tin phụ cho con người hoặc hệ thống khác.
+
+```
+metadata:
+  annotations:
+    author: "Minh Minh"
+    description: "Frontend service for main web app"
+    last-update: "2025-10-10"
+```
+
+Annotations thường dùng để lưu:
+
+- Thông tin build/deploy (Git commit, CI pipeline ID)
+- URL tài liệu, thông tin người chịu trách nhiệm
+- Hash config, checksum
+- Data cho các controller/operator ngoài Kubernetes
+
+#### So sánh nhanh Labels vs Annotations
+
+| Tính năng                                | **Labels**                                | **Annotations**            |
+| ---------------------------------------- | ----------------------------------------- | -------------------------- |
+| Mục đích                                 | Nhóm, chọn, truy vấn object               | Lưu thông tin phụ trợ      |
+| Có thể lọc, tìm kiếm được?               | ✅ Có (`kubectl get pods -l app=frontend`) | ❌ Không                    |
+| Được sử dụng bởi Kubernetes controllers? | ✅ Có                                      | ⚠️ Không                   |
+| Dữ liệu lớn được không?                  | ❌ Nên nhỏ, đơn giản                       | ✅ Có thể chứa data lớn     |
+| Ví dụ sử dụng                            | `env=prod`, `app=frontend`                | `ci-build-url=https://...` |
+
+### Namespace — Phân vùng tài nguyên trong cluster
+
+Kubernetes cho phép chia nhỏ cluster thành nhiều “vùng logic” gọi là Namespace.
+Mỗi namespace giống như một không gian độc lập, nơi các tài nguyên (Pods, Services, ConfigMaps, v.v.) được nhóm và quản lý riêng biệt.
+
+**Công dụng chính**:
+
+- Tách biệt môi trường (dev, test, prod)
+- Giới hạn quyền truy cập, quota tài nguyên (CPU, RAM)
+- Tránh trùng tên tài nguyên (VD: có thể có pod/frontend trong cả dev và prod)
+
+Ex:
+
+- default: namespace mặc định khi bạn không chỉ định.
+- kube-system: chứa các thành phần hệ thống (CoreDNS, kube-proxy, v.v.)
+- kube-public: dùng để chia sẻ dữ liệu công khai trong cluster.
+- Bạn có thể tạo namespace riêng như dev, staging, production.
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp
+  namespace: dev
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+```
+
+### ConfigMap — Lưu cấu hình không nhạy cảm
+
+ConfigMap cho phép bạn tách cấu hình khỏi mã nguồn ứng dụng.
+Thay vì hardcode config vào container, bạn lưu config trong Kubernetes và mount hoặc inject vào container.
+
+**Công dụng:**
+
+- Dễ dàng thay đổi config mà không cần rebuild image.
+- Dùng chung config cho nhiều Pod.
+- Triển khai các bản cập nhật linh hoạt.
+
+```
+<!-- app-config.yaml -->
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  APP_MODE: "production"
+  APP_PORT: "8080"
+```
+
+```
+<!-- Pod -->
+apiVersion: v1
+kind: Pod
+metadata:
+  name: demo-pod
+spec:
+  containers:
+    - name: app
+      image: nginx
+      envFrom:
+        - configMapRef:
+            name: app-config
+```
+ConfigMap có thể được mount như environment variables hoặc file trong volume.
+
+### Secret — Lưu thông tin nhạy cảm (password, token, keys)
+
+Giống như ConfigMap, nhưng Secret được thiết kế để lưu trữ thông tin nhạy cảm.
+Kubernetes lưu trữ Secret dưới dạng base64-encoded (có thể kết hợp với các plugin như HashiCorp Vault để tăng bảo mật).
+
+**Công dụng:**
+
+- Lưu password, API key, SSH key, TLS certs
+- Tách riêng thông tin nhạy cảm khỏi container image
+- Có thể mount như file hoặc biến môi trường
+
+> kubectl create secret generic db-secret \
+  --from-literal=DB_USER=admin \
+  --from-literal=DB_PASS=s3cr3t
+
+```
+<!-- config yaml -->
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+type: Opaque
+data:
+  DB_USER: YWRtaW4=       # admin
+  DB_PASS: czNjcjN0       # s3cr3t
+```
+
+```
+<!-- Pod -->
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db-client
+spec:
+  containers:
+    - name: app
+      image: nginx
+      envFrom:
+        - secretRef:
+            name: db-secret
+```
+
+Secret không mã hóa thật sự, chỉ mã hóa base64. Nếu cần bảo mật cao, hãy tích hợp KMS hoặc Vault.
+
+### Ingress — Cổng vào của ứng dụng (HTTP/HTTPS)
+
+Ingress là lớp điều hướng (reverse proxy + load balancer) giúp đưa traffic từ ngoài Internet vào các Service bên trong cluster.
+Thay vì phải mở port qua NodePort hoặc LoadBalancer cho từng Service, ta có thể gom lại qua một cổng HTTP(S) duy nhất.
+
+**Công dụng:**
+
+- Quản lý nhiều domain/subdomain qua một IP
+- Hỗ trợ HTTPS/TLS termination
+- Tích hợp rewrite path, routing, load balancing
+- Dễ dàng scale với controller (Ingress Nginx, Traefik, HAProxy…)
+
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: myapp-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: myapp.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-svc
+                port:
+                  number: 80
+```
+
+> Khi có request đến http://myapp.example.com, Ingress Controller (VD: nginx-ingress) sẽ chuyển tiếp đến Service frontend-svc.
+
+#### So sánh 3 cách expose service:
+
+| Phương thức      | Cách hoạt động                                           | Mức độ phức tạp | Ghi chú                            |
+| ---------------- | -------------------------------------------------------- | --------------- | ---------------------------------- |
+| **ClusterIP**    | Chỉ trong nội bộ cluster                                 | 🔹 Thấp         | Mặc định                           |
+| **NodePort**     | Mở port cố định trên mỗi Node                            | 🔸 Trung bình   | Truy cập qua `<NodeIP>:<NodePort>` |
+| **LoadBalancer** | Dùng cloud LB (AWS ELB, GCP LB, …)                       | 🔸 Trung bình   | Cần cloud provider                 |
+| **Ingress**      | Dùng 1 entrypoint HTTP(S) để điều phối vào nhiều service | ✅ Cao           | Dễ mở rộng, quản lý domain, TLS    |
+
+
+## knowledge to learn later to complete
+
+1. Resource Management (Quota & LimitRange)
+
+> → Giúp kiểm soát việc tiêu thụ tài nguyên (CPU, RAM) giữa các namespace và pod.
+
+LimitRange: đặt giới hạn mặc định cho Pod/Container trong một namespace → tránh việc ai đó tạo pod “ăn” 100% CPU của node.
+
+ResourceQuota: đặt quota tổng cho cả namespace (ví dụ chỉ được 4 CPU và 8GB RAM tổng).
+
+```
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-quota
+  namespace: dev
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+```
+
+2. RBAC (Role-Based Access Control)
+
+> → Cực kỳ quan trọng khi làm việc thực tế, đặc biệt trong môi trường multi-user hoặc CI/CD.
+
+Kubernetes có các đối tượng:
+
+- Role / ClusterRole: định nghĩa quyền (như “được phép xem Pod”, “được phép xoá Service”)
+- RoleBinding / ClusterRoleBinding: gán quyền đó cho user/service account.
+
+```
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: dev
+  name: pod-reader
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+```
+
+### 3. ServiceAccount
+
+> → Đại diện cho Pod trong việc xác thực với API server.
+
+Mỗi Pod khi chạy trong cluster sẽ “đăng nhập” vào hệ thống bằng 1 ServiceAccount.
+
+Khi bạn triển khai CI/CD hoặc một ứng dụng cần truy cập API Kubernetes, bạn sẽ tạo ServiceAccount riêng có quyền cụ thể.
+
+### 4. Taints & Tolerations / NodeSelector / Affinity
+
+> → Liên quan đến cách Kubernetes chọn node để chạy Pod.
+
+Taints & Tolerations: “Đánh dấu” node chỉ chấp nhận những pod phù hợp (VD: node đặc biệt cho GPU).
+
+NodeSelector: Pod chỉ được chạy trên node có label phù hợp.
+
+Affinity / Anti-Affinity: Cho phép ràng buộc logic phức tạp hơn — ví dụ:
+
+- “Đặt 2 pod này không được chung node”
+- “Pod này nên ở cùng node với pod kia”.
+
+### 5. LivenessProbe / ReadinessProbe / StartupProbe
+
+> → Kiểm tra “sức khoẻ” container để Kubernetes biết khi nào restart hoặc nhận traffic.
+
+- livenessProbe: container còn sống hay không.
+- readinessProbe: container đã sẵn sàng phục vụ chưa.
+- startupProbe: container khởi động xong chưa (thường cho app start chậm).
+
+### 6. Horizontal Pod Autoscaler (HPA)
+
+> → Cơ chế tự động scale Pod theo tài nguyên thực tế.
+
+Ví dụ: nếu CPU > 70% → tự tăng số Pod lên 3.
+
+### 7. Config Best Practice
+
+- Không hardcode secret → dùng Secret/ConfigMap.
+- Dùng label + annotation để quản lý version và ownership.
+- Tách file YAML theo cấu trúc: deployment.yaml, service.yaml, config.yaml, v.v.
+
+### 8. Helm (Package Manager cho K8s)
+
+> → Cách “triển khai app thực tế” dễ dàng nhất.
+
+- Cho phép bạn đóng gói toàn bộ YAML (deployment, service, config…) thành Helm Chart.
+- Có thể parameterize, reuse, upgrade rollback nhanh.
+
+>  helm install myapp ./chart
+
+### 9. Logging & Monitoring
+
+> → Hiểu cách quan sát cluster & ứng dụng.
+
+Các công cụ phổ biến:
+
+- Metrics Server → HPA
+- Prometheus + Grafana → giám sát chi tiết
+- ELK / Loki → thu thập log
+- kubectl logs / describe / top → debug nhanh
+
+### 10. Storage Class & Dynamic Provisioning
+
+> → Cách Kubernetes tự tạo PersistentVolume khi cần.
+
+- PersistentVolumeClaim (PVC) yêu cầu storage.
+- StorageClass quyết định cách tạo volume (local, NFS, EBS, v.v.)
+- Cho phép auto-provision mà không cần tạo volume thủ công.
+
+## Tổng kết
+
+| Nhóm                     | Thành phần                                                           | Mục tiêu                     |
+| ------------------------ | -------------------------------------------------------------------- | ---------------------------- |
+| **Kiến trúc lõi**        | etcd, kube-apiserver, controller-manager, scheduler, node components | Hiểu control plane hoạt động |
+| **Workloads**            | Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob                | Quản lý ứng dụng             |
+| **Networking & Access**  | Service, Ingress, kube-proxy                                         | Điều phối traffic            |
+| **Storage**              | Volume, PVC, StorageClass                                            | Duy trì dữ liệu              |
+| **Config & Secrets**     | ConfigMap, Secret, Namespace                                         | Quản lý cấu hình & bảo mật   |
+| **Quản trị**             | RBAC, ResourceQuota, ServiceAccount                                  | Quản lý người dùng và quyền  |
+| **Scheduling & Scaling** | Affinity, HPA, Taints/Tolerations                                    | Tối ưu hiệu suất             |
+| **Observability**        | Logs, Metrics, Health Checks                                         | Theo dõi và khôi phục lỗi    |
+
+```mermaid
+graph TD
+    A[Kubernetes Overview] --> B[Kubernetes Core Concepts]
+    A --> C[Workload Controllers]
+    A --> D[Networking & Service Exposure]
+    A --> E[Storage & Data Persistence]
+    A --> F[Configuration & Secrets Management]
+    A --> G[Organization & Access Control]
+
+    %% Core Concepts
+    B --> B1[Cluster Components]
+    B1 --> B2[Master / Control Plane]
+    B1 --> B3[Worker Nodes]
+    B2 --> B4[API Server]
+    B2 --> B5[Scheduler]
+    B2 --> B6[Controller Manager]
+    B2 --> B7["etcd (Cluster State DB)"]
+    B3 --> B8[Kubelet]
+    B3 --> B9[Kube Proxy]
+    B3 --> B10["Container Runtime (e.g. containerd)"]
+
+    %% Workloads
+    C --> C1[Pods]
+    C1 --> C1a["Smallest deployable unit"]
+    C1 --> C1b["Can contain multiple containers"]
+
+    C --> C2[ReplicaSet]
+    C2 --> C2a["Ensures desired number of pod replicas"]
+
+    C --> C3[Deployment]
+    C3 --> C3a["Stateless workloads"]
+    C3 --> C3b["Easy scaling, rolling updates"]
+
+    C --> C4[StatefulSet]
+    C4 --> C4a["Stateful workloads (e.g. databases)"]
+    C4 --> C4b["Stable network identity & persistent storage"]
+
+    C --> C5[DaemonSet]
+    C5 --> C5a["Runs one pod per node"]
+    C5 --> C5b["Useful for logging, monitoring agents"]
+
+    C --> C6[Job]
+    C6 --> C6a["Runs tasks that complete and exit"]
+
+    C --> C7[CronJob]
+    C7 --> C7a["Schedules jobs periodically (like Linux cron)"]
+
+    %% Networking
+    D --> D1[Service]
+    D1 --> D1a["Stable endpoint for pods"]
+    D1 --> D1b["Internal load balancing"]
+
+    D1 --> D2[Types of Services]
+    D2 --> D2a["ClusterIP (internal default)"]
+    D2 --> D2b["NodePort (expose via node port)"]
+    D2 --> D2c["LoadBalancer (external access)"]
+
+    D --> D3[Ingress]
+    D3 --> D3a["Layer 7 routing (HTTP/HTTPS)"]
+    D3 --> D3b["Advanced routing, TLS termination"]
+
+    %% Storage
+    E --> E1[Volume]
+    E1 --> E1a["Attach storage to pod lifetime"]
+
+    E --> E2["Persistent Volume (PV)"]
+    E2 --> E2a["Cluster-wide storage resource"]
+
+    E --> E3["Persistent Volume Claim (PVC)"]
+    E3 --> E3a["Pod request for a PV"]
+    E3 --> E3b["Decouples storage from pod"]
+
+    %% Configuration & Secrets
+    F --> F1[ConfigMap]
+    F1 --> F1a["Stores non-sensitive config data"]
+    F1 --> F1b["Injected as env vars or mounted files"]
+
+    F --> F2[Secret]
+    F2 --> F2a["Stores sensitive data (passwords, tokens)"]
+    F2 --> F2b["Encoded as base64"]
+
+    %% Organization
+    G --> G1[Namespace]
+    G1 --> G1a["Logical partition within cluster"]
+    G1 --> G1b["Used for multi-tenancy, isolation"]
+
+    G --> G2[Labels]
+    G2 --> G2a["Key-value pairs for identifying resources"]
+    G2 --> G2b["Used for selection (e.g. by Services, Deployments)"]
+
+    G --> G3[Annotations]
+    G3 --> G3a["Attach metadata to resources"]
+    G3 --> G3b["Not used for selection — purely informational"]
+```
+
+-----
+
+
