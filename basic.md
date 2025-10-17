@@ -1509,7 +1509,7 @@ Các công cụ phổ biến:
 | **Quản trị**             | RBAC, ResourceQuota, ServiceAccount                                  | Quản lý người dùng và quyền  |
 | **Scheduling & Scaling** | Affinity, HPA, Taints/Tolerations                                    | Tối ưu hiệu suất             |
 | **Observability**        | Logs, Metrics, Health Checks                                         | Theo dõi và khôi phục lỗi    |
-
+---
 ```mermaid
 graph TB
     A[Kubernetes Overview]
@@ -1621,7 +1621,144 @@ graph TB
     A --> G
 
 ```
-
 -----
 
+```mermaid
+graph TD
+  O[Kubernetes - Overview]
+
+  O --> CC["1. Core Concepts"]
+  O --> WC["2. Workload Controllers"]
+  O --> NW["3. Networking & Service Exposure"]
+  O --> ST["4. Storage & Persistence"]
+  O --> CF["5. Config & Secrets"]
+  O --> ORG["6. Organization & Access Control"]
+
+```
+
+```mermaid
+graph TB
+  subgraph Core["Core Concepts (Control Plane & Nodes)"]
+    CP["Control Plane"]
+    CP --> AP["API Server"]
+    CP --> ETCD["etcd (Cluster State DB)"]
+    CP --> CM["Controller Manager"]
+    CP --> SCH["Scheduler"]
+
+    Nodes["Worker Nodes"]
+    Nodes --> KUBELET["kubelet"]
+    Nodes --> KPROXY["kube-proxy"]
+    Nodes --> RUNTIME["Container Runtime (containerd/docker)"]
+  end
+
+  Core --> Nodes
+```
+---
+```mermaid
+graph TD
+  subgraph Workloads["Workload Controllers"]
+    POD["Pod"]
+    POD --> P1["Smallest deployable unit"]
+    POD --> P2["May contain multiple containers"]
+
+    RS["ReplicaSet"]
+    RS --> RS1["Ensure desired # replicas"]
+
+    DEP["Deployment"]
+    DEP --> DEP1["Stateless apps"]
+    DEP --> DEP2["Rolling updates & rollback"]
+
+    SS["StatefulSet"]
+    SS --> SS1["Stable identity: name-0,1,2..."]
+    SS --> SS2["Persistent volumes per pod"]
+
+    DS["DaemonSet"]
+    DS --> DS1["Run 1 pod per node"]
+    DS --> DS2["Agents: logging/monitoring"]
+
+    JOB["Job"]
+    JOB --> JOB1["Run to completion"]
+
+    CRON["CronJob"]
+    CRON --> CRON1["Scheduled Jobs (cron)"]
+  end
+```
+---
+
+```mermaid
+graph TB
+  subgraph Net["Networking & Service Exposure"]
+    SVC["Service (stable endpoint)"]
+    SVC --> S1["ClusterIP (internal)"]
+    SVC --> S2["NodePort (expose on node port)"]
+    SVC --> S3["LoadBalancer (cloud LB)"]
+
+    ING["Ingress"]
+    ING --> I1["Layer7 routing (HTTP/HTTPS)"]
+    ING --> I2["TLS termination, host/path rules"]
+
+    KPROXY["kube-proxy"]
+    KPROXY --> KP1["iptables / ipvs rules"]
+  end
+```
+---
+
+```mermaid
+graph TB
+  subgraph Storage["Storage & Persistence"]
+    VOL["Volume"]
+    VOL --> V1["Pod-scoped (e.g. emptyDir)"]
+
+    PV["PersistentVolume (PV)"]
+    PV --> PV1["Cluster resource, backed by disk/NFS/cloud"]
+
+    PVC["PersistentVolumeClaim (PVC)"]
+    PVC --> PVC1["Pod requests storage via PVC"]
+
+    SC["StorageClass"]
+    SC --> SC1["Dynamic provisioning (provisioner)"]
+
+    PVC -->|binds to| PV
+    PVC -->|may reference| SC
+  end
+```
+---
+```mermaid
+graph TB
+  subgraph Config["Config & Secrets"]
+    CM["ConfigMap"]
+    CM --> CM1["Non-sensitive config"]
+    CM --> CM2["Mount as env or file"]
+
+    SECRET["Secret"]
+    SECRET --> S1["Sensitive data (pw, tokens)"]
+    SECRET --> S2["Base64 encoded (use KMS/Vault for stronger security)"]
+  end
+```
+---
+```mermaid
+graph TB
+  subgraph Org["Organization & Access Control"]
+    NS["Namespace"]
+    NS --> NS1["Logical partition (dev/staging/prod)"]
+    NS --> NS2["Resource quotas, isolation"]
+
+    LABELS["Labels"]
+    LABELS --> L1["Key:value for selection"]
+    LABELS --> L2["Used by selectors (Service, Deployment)"]
+
+    ANNO["Annotations"]
+    ANNO --> A1["Metadata (not for selection)"]
+    ANNO --> A2["CI info, owner, docs, checksums"]
+
+    RBAC["RBAC & ServiceAccount"]
+    RBAC --> R1["Role / ClusterRole"]
+    RBAC --> R2["RoleBinding / ClusterRoleBinding"]
+    RBAC --> R3["ServiceAccount used by Pods"]
+
+    QUOTA["ResourceQuota / LimitRange"]
+    QUOTA --> Q1["Limit CPU/memory at namespace level"]
+
+  end
+```
 
