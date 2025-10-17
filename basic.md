@@ -1511,98 +1511,115 @@ Các công cụ phổ biến:
 | **Observability**        | Logs, Metrics, Health Checks                                         | Theo dõi và khôi phục lỗi    |
 
 ```mermaid
-graph TD
-    A[Kubernetes Overview] --> B[Kubernetes Core Concepts]
-    A --> C[Workload Controllers]
-    A --> D[Networking & Service Exposure]
-    A --> E[Storage & Data Persistence]
-    A --> F[Configuration & Secrets Management]
-    A --> G[Organization & Access Control]
+graph TB
+    A[Kubernetes Overview]
 
-    %% Core Concepts
-    B --> B1[Cluster Components]
-    B1 --> B2[Master / Control Plane]
-    B1 --> B3[Worker Nodes]
-    B2 --> B4[API Server]
-    B2 --> B5[Scheduler]
-    B2 --> B6[Controller Manager]
-    B2 --> B7["etcd (Cluster State DB)"]
-    B3 --> B8[Kubelet]
-    B3 --> B9[Kube Proxy]
-    B3 --> B10["Container Runtime (e.g. containerd)"]
+    %% ========== CORE ==========
+    subgraph B[Kubernetes Core Concepts]
+        B1[Cluster Components]
+        B1 --> B2["Control Plane"]
+        B2 --> B4["API Server"]
+        B2 --> B5["Scheduler"]
+        B2 --> B6["Controller Manager"]
+        B2 --> B7["etcd (Cluster State DB)"]
 
-    %% Workloads
-    C --> C1[Pods]
-    C1 --> C1a["Smallest deployable unit"]
-    C1 --> C1b["Can contain multiple containers"]
+        B1 --> B3["Worker Nodes"]
+        B3 --> B8["Kubelet"]
+        B3 --> B9["Kube Proxy"]
+        B3 --> B10["Container Runtime (e.g. containerd)"]
+    end
 
-    C --> C2[ReplicaSet]
-    C2 --> C2a["Ensures desired number of pod replicas"]
+    %% ========== WORKLOADS ==========
+    subgraph C[Workload Controllers]
+        C1[Pod]
+        C1 --> C1a["Smallest deployable unit"]
+        C1 --> C1b["Can contain multiple containers"]
 
-    C --> C3[Deployment]
-    C3 --> C3a["Stateless workloads"]
-    C3 --> C3b["Easy scaling, rolling updates"]
+        C2[ReplicaSet]
+        C2 --> C2a["Ensures desired number of pod replicas"]
 
-    C --> C4[StatefulSet]
-    C4 --> C4a["Stateful workloads (e.g. databases)"]
-    C4 --> C4b["Stable network identity & persistent storage"]
+        C3[Deployment]
+        C3 --> C3a["Stateless workloads"]
+        C3 --> C3b["Scaling & rolling updates"]
 
-    C --> C5[DaemonSet]
-    C5 --> C5a["Runs one pod per node"]
-    C5 --> C5b["Useful for logging, monitoring agents"]
+        C4[StatefulSet]
+        C4 --> C4a["Stateful workloads (databases)"]
+        C4 --> C4b["Stable identity & persistent volume"]
 
-    C --> C6[Job]
-    C6 --> C6a["Runs tasks that complete and exit"]
+        C5[DaemonSet]
+        C5 --> C5a["Runs one pod per node"]
+        C5 --> C5b["Node-level agents, monitoring"]
 
-    C --> C7[CronJob]
-    C7 --> C7a["Schedules jobs periodically (like Linux cron)"]
+        C6[Job]
+        C6 --> C6a["One-time or batch task"]
 
-    %% Networking
-    D --> D1[Service]
-    D1 --> D1a["Stable endpoint for pods"]
-    D1 --> D1b["Internal load balancing"]
+        C7[CronJob]
+        C7 --> C7a["Scheduled jobs (like cron)"]
+    end
 
-    D1 --> D2[Types of Services]
-    D2 --> D2a["ClusterIP (internal default)"]
-    D2 --> D2b["NodePort (expose via node port)"]
-    D2 --> D2c["LoadBalancer (external access)"]
+    %% ========== NETWORKING ==========
+    subgraph D[Networking & Service Exposure]
+        D1[Service]
+        D1 --> D1a["Stable endpoint for pods"]
+        D1 --> D1b["Internal load balancing"]
 
-    D --> D3[Ingress]
-    D3 --> D3a["Layer 7 routing (HTTP/HTTPS)"]
-    D3 --> D3b["Advanced routing, TLS termination"]
+        D2[Service Types]
+        D2 --> D2a["ClusterIP (internal default)"]
+        D2 --> D2b["NodePort (expose on node port)"]
+        D2 --> D2c["LoadBalancer (external access)"]
 
-    %% Storage
-    E --> E1[Volume]
-    E1 --> E1a["Attach storage to pod lifetime"]
+        D3[Ingress]
+        D3 --> D3a["Layer 7 routing (HTTP/HTTPS)"]
+        D3 --> D3b["Advanced routing & TLS termination"]
+    end
 
-    E --> E2["Persistent Volume (PV)"]
-    E2 --> E2a["Cluster-wide storage resource"]
+    %% ========== STORAGE ==========
+    subgraph E[Storage & Data Persistence]
+        E1[Volume]
+        E1 --> E1a["Storage tied to pod lifecycle"]
 
-    E --> E3["Persistent Volume Claim (PVC)"]
-    E3 --> E3a["Pod request for a PV"]
-    E3 --> E3b["Decouples storage from pod"]
+        E2["Persistent Volume (PV)"]
+        E2 --> E2a["Cluster-wide storage resource"]
 
-    %% Configuration & Secrets
-    F --> F1[ConfigMap]
-    F1 --> F1a["Stores non-sensitive config data"]
-    F1 --> F1b["Injected as env vars or mounted files"]
+        E3["Persistent Volume Claim (PVC)"]
+        E3 --> E3a["Pod requests for PVs"]
+        E3 --> E3b["Decouples storage from pods"]
+    end
 
-    F --> F2[Secret]
-    F2 --> F2a["Stores sensitive data (passwords, tokens)"]
-    F2 --> F2b["Encoded as base64"]
+    %% ========== CONFIG ==========
+    subgraph F[Configuration & Secrets Management]
+        F1[ConfigMap]
+        F1 --> F1a["Stores non-sensitive config data"]
+        F1 --> F1b["Mount as env vars or files"]
 
-    %% Organization
-    G --> G1[Namespace]
-    G1 --> G1a["Logical partition within cluster"]
-    G1 --> G1b["Used for multi-tenancy, isolation"]
+        F2[Secret]
+        F2 --> F2a["Stores sensitive data (passwords, tokens)"]
+        F2 --> F2b["Base64 encoded"]
+    end
 
-    G --> G2[Labels]
-    G2 --> G2a["Key-value pairs for identifying resources"]
-    G2 --> G2b["Used for selection (e.g. by Services, Deployments)"]
+    %% ========== ORGANIZATION ==========
+    subgraph G[Organization & Access Control]
+        G1[Namespace]
+        G1 --> G1a["Logical isolation"]
+        G1 --> G1b["Multi-tenancy support"]
 
-    G --> G3[Annotations]
-    G3 --> G3a["Attach metadata to resources"]
-    G3 --> G3b["Not used for selection — purely informational"]
+        G2[Labels]
+        G2 --> G2a["Key-value pairs for grouping"]
+        G2 --> G2b["Used for selectors (Service, Deployment)"]
+
+        G3[Annotations]
+        G3 --> G3a["Attach metadata to objects"]
+        G3 --> G3b["Not used for selection"]
+    end
+
+    %% ========== CONNECTIONS ==========
+    A --> B
+    A --> C
+    A --> D
+    A --> E
+    A --> F
+    A --> G
+
 ```
 
 -----
