@@ -1,4 +1,4 @@
-apiVersion: v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: php-fpm
@@ -42,7 +42,7 @@ spec:
       volumes:
         - name: www
           configMap:
-            name: php-code
+            name: app-code
             # mount all keys as files under /var/www/html
 ---
 apiVersion: v1
